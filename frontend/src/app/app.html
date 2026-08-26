@@ -1,0 +1,413 @@
+<header class="studio-header" role="banner">
+  <div class="studio-header__brand">
+    <div class="studio-header__logo" aria-hidden="true">
+      <span class="logo-icon">🎵</span>
+      <span class="logo-wave" aria-hidden="true"></span>
+    </div>
+    <div class="studio-header__titles">
+      <h1 class="studio-header__name">Audio Espacial 3D &amp; Simulador Acustico</h1>
+      <p class="studio-header__desc">
+        Motor de simulación acústica 3D en el navegador — Ray-tracing en tiempo real
+        con Web Workers y Web Audio API
+      </p>
+    </div>
+  </div>
+
+  <button class="theme-toggle" type="button" (click)="toggleTheme()"
+    [attr.aria-label]="isDark() ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'" [attr.aria-pressed]="isDark()"
+    id="btn-toggle-theme">
+    <span class="theme-toggle__icon" aria-hidden="true">
+      {{ isDark() ? '☀️' : '🌙' }}
+    </span>
+    <span>{{ isDark() ? 'Modo claro' : 'Modo oscuro' }}</span>
+  </button>
+</header>
+
+<main class="studio-main" id="contenido-principal">
+  <div class="studio-grid">
+
+    <aside class="studio-panel studio-panel--inputs" aria-label="Entradas de audio y espacio">
+
+      <section class="card" aria-labelledby="titulo-audio">
+        <header class="card__header card__header--pink">
+          <span class="card__icon" aria-hidden="true">🎙️</span>
+          <h2 class="card__title" id="titulo-audio">Fuente de Audio</h2>
+          <span class="chip chip-pink">MP3 / WAV</span>
+        </header>
+
+        <div class="card__body">
+          <div class="tab-bar" role="tablist" aria-label="Modo de entrada de audio">
+            <button class="tab-btn" [class.tab-btn--active]="activeTab() === 'file'" role="tab"
+              [attr.aria-selected]="activeTab() === 'file'" id="tab-archivo" aria-controls="panel-archivo" type="button"
+              (click)="selectTab('file')">
+              📁 Subir archivo
+            </button>
+            <button class="tab-btn" [class.tab-btn--active]="activeTab() === 'url'" role="tab"
+              [attr.aria-selected]="activeTab() === 'url'" id="tab-url" aria-controls="panel-url" type="button"
+              (click)="selectTab('url')">
+              🔗 Pegar URL
+            </button>
+          </div>
+
+          @if (activeTab() === 'file') {
+          <div class="tab-panel" id="panel-archivo" role="tabpanel" aria-labelledby="tab-archivo">
+            <label class="file-drop-zone" for="input-audio-file">
+              <span class="file-drop-zone__icon" aria-hidden="true">🎵</span>
+              <span class="file-drop-zone__text">
+                @if (audioFileName()) {
+                <strong>{{ audioFileName() }}</strong>
+                } @else {
+                Arrastra un archivo <strong>MP3</strong> o <strong>WAV</strong><br>
+                <small>o haz clic para explorar</small>
+                }
+              </span>
+              <input id="input-audio-file" type="file" accept=".mp3,.wav,audio/*" class="sr-only"
+                (change)="onAudioFileSelected($event)" aria-label="Seleccionar archivo de audio MP3 o WAV">
+            </label>
+          </div>
+          }
+
+          @if (activeTab() === 'url') {
+          <div class="tab-panel" id="panel-url" role="tabpanel" aria-labelledby="tab-url">
+            <label class="form-label" for="input-audio-url">URL del archivo de audio</label>
+            <input id="input-audio-url" type="url" class="form-input" placeholder="https://ejemplo.com/audio.mp3"
+              [value]="audioUrl()" (input)="audioUrl.set($any($event.target).value)" (blur)="onAudioUrlBlur()"
+              aria-describedby="url-hint">
+            <small id="url-hint" class="form-hint">
+              Introduce una URL pública de un archivo MP3 o WAV.
+              Al salir del campo, el audio se decodificará automáticamente.
+            </small>
+          </div>
+          }
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="titulo-imagen">
+        <header class="card__header card__header--blue">
+          <span class="card__icon" aria-hidden="true">🏛️</span>
+          <h2 class="card__title" id="titulo-imagen">Plano del Espacio</h2>
+          <span class="chip chip-blue">JPG / PNG</span>
+        </header>
+
+        <div class="card__body">
+          <label class="file-drop-zone file-drop-zone--blue" for="input-space-image">
+            <span class="file-drop-zone__icon" aria-hidden="true">🖼️</span>
+            <span class="file-drop-zone__text">
+              @if (spaceImageFileName()) {
+              <strong>{{ spaceImageFileName() }}</strong>
+              } @else {
+              Sube la <strong>foto o plano</strong> del espacio<br>
+              <small>JPG o PNG — el canvas usará esta imagen como fondo</small>
+              }
+            </span>
+            <input id="input-space-image" type="file" accept=".jpg,.jpeg,.png,image/*" class="sr-only"
+              (change)="onSpaceImageSelected($event)" aria-label="Seleccionar foto o plano del espacio">
+          </label>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="titulo-material">
+        <header class="card__header card__header--purple">
+          <span class="card__icon" aria-hidden="true">🧱</span>
+          <h2 class="card__title" id="titulo-material">Material de Paredes</h2>
+        </header>
+
+        <div class="card__body">
+          <label class="form-label" for="select-material">
+            Selecciona el material acústico predominante
+          </label>
+          <div class="select-wrapper">
+            <select id="select-material" class="form-select" [value]="selectedMaterial()"
+              (change)="onMaterialChange($any($event.target).value)" aria-describedby="material-hint">
+              @for (opt of wallMaterialOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+            <span class="select-wrapper__arrow" aria-hidden="true">▾</span>
+          </div>
+
+          <div class="material-props" role="status" aria-live="polite">
+            @switch (selectedMaterial()) {
+            @case ('concrete') {
+            <div class="material-props__item">
+              <span class="chip chip-purple">RT60 ~0.8 s</span>
+              <span class="chip chip-blue">Reflexión alta</span>
+            </div>
+            <p class="material-props__desc">
+              Superficies duras — reflexión especular dominante.
+            </p>
+            }
+            @case ('wood') {
+            <div class="material-props__item">
+              <span class="chip chip-purple">RT60 ~0.5 s</span>
+              <span class="chip chip-pink">Reflexión media</span>
+            </div>
+            <p class="material-props__desc">
+              Madera — equilibrio entre reflexión y absorción.
+            </p>
+            }
+            @case ('fabric') {
+            <div class="material-props__item">
+              <span class="chip chip-purple">RT60 ~0.2 s</span>
+              <span class="chip chip-pink">Alta absorción</span>
+            </div>
+            <p class="material-props__desc">
+              Tela / espuma — sala seca, reverberación mínima.
+            </p>
+            }
+            }
+          </div>
+          <small id="material-hint" class="form-hint">
+            El material afecta los coeficientes de absorción en la simulación de rayos.
+          </small>
+        </div>
+      </section>
+    </aside>
+
+    <section class="studio-panel studio-panel--canvas" aria-labelledby="titulo-canvas">
+
+      <header class="canvas-panel-header">
+        <div>
+          <h2 class="canvas-panel-title" id="titulo-canvas">
+            🗺️ Canvas Acústico 3D
+          </h2>
+          <p class="canvas-panel-hint">
+            Haz clic en el canvas para mover el 🔊 <strong>Parlante</strong>.
+            Mantén <kbd>Shift</kbd> + clic para mover el 👂 <strong>Oyente</strong>.
+          </p>
+        </div>
+
+        <div class="canvas-badges" aria-live="polite">
+          @if (isProcessing()) {
+          <span class="badge badge--processing">⚙️ Procesando…</span>
+          } @else if (isProcessingDone()) {
+          <span class="badge badge--done">✅ Listo</span>
+          } @else {
+          <span class="badge badge--idle">⏸ En espera</span>
+          }
+        </div>
+      </header>
+
+      <div class="acoustic-canvas" (click)="onCanvasClick($event)" (mousemove)="onCanvasMouseMove($event)"
+        (mouseup)="onCanvasMouseUp($event)" (mouseleave)="onCanvasMouseLeave()" role="img"
+        aria-label="Área de simulación acústica" tabindex="0" id="canvas-acustico">
+        @if (spaceImageUrl()) {
+        <img [src]="spaceImageUrl()" alt="Plano del espacio cargado" class="canvas-bg-image">
+        } @else {
+        <div class="canvas-placeholder" aria-hidden="true">
+          <span class="canvas-placeholder__icon">🏠</span>
+          <span class="canvas-placeholder__text">
+            Carga un plano o foto del espacio<br>para visualizar la simulación
+          </span>
+        </div>
+        }
+
+        <div class="canvas-marker canvas-marker--source" [style.left.%]="sourcePosition().x"
+          [style.top.%]="sourcePosition().y" title="Fuente de audio — Parlante" aria-label="Parlante (fuente de audio)"
+          role="img" (mousedown)="onMarkerMouseDown($event, 'source')">
+          <span class="canvas-marker__icon" aria-hidden="true">🔊</span>
+          <span class="canvas-marker__label">Parlante</span>
+        </div>
+
+        <div class="canvas-marker canvas-marker--listener" [style.left.%]="listenerPosition().x"
+          [style.top.%]="listenerPosition().y" title="Oyente (Listener)" aria-label="Oyente (Listener)" role="img"
+          (mousedown)="onMarkerMouseDown($event, 'listener')">
+          <span class="canvas-marker__icon" aria-hidden="true">👂</span>
+          <span class="canvas-marker__label">Oyente</span>
+        </div>
+
+        @if (isProcessingDone() || isProcessing()) {
+        <svg class="canvas-rays" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+          <line [attr.x1]="sourcePosition().x + '%'" [attr.y1]="sourcePosition().y + '%'"
+            [attr.x2]="listenerPosition().x + '%'" [attr.y2]="listenerPosition().y + '%'" class="ray-line"
+            stroke-dasharray="6 4" />
+        </svg>
+        }
+      </div>
+
+      <div class="progress-section" aria-label="Progreso del procesamiento">
+        <div class="progress-header">
+          <span class="progress-label">
+            @if (isProcessing()) {
+            ⚙️ Calculando trayectorias de rayos acústicos…
+            } @else if (isProcessingDone()) {
+            ✅ Simulación completada
+            } @else {
+            ⏳ Esperando inicio del procesamiento
+            }
+          </span>
+          <span class="progress-pct" aria-live="polite">
+            {{ isProcessingDone() ? 100 : (processingProgress() | number:'1.0-0') }}%
+          </span>
+        </div>
+        <div class="progress-bar" role="progressbar"
+          [attr.aria-valuenow]="isProcessingDone() ? 100 : processingProgress()" aria-valuemin="0" aria-valuemax="100"
+          aria-label="Porcentaje de progreso">
+          <div class="progress-bar__fill" [style.width.%]="isProcessingDone() ? 100 : processingProgress()"
+            [class.progress-bar__fill--done]="isProcessingDone()"></div>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  @if (isProcessingDone()) {
+  <section class="results-panel" aria-labelledby="titulo-resultados" aria-live="polite">
+    <h2 class="results-panel__title" id="titulo-resultados">
+      📊 Resultados de la Simulación Acústica
+    </h2>
+    <p class="results-panel__subtitle">
+      Motor de ray-tracing ejecutado en Web Worker — 5 000 rayos emitidos
+    </p>
+
+    <div class="results-grid">
+
+      <div class="metric-card metric-card--pink">
+        <span class="metric-card__icon" aria-hidden="true">🎯</span>
+        <div class="metric-card__data">
+          <span class="metric-card__value">{{ capturedRays() }}</span>
+          <span class="metric-card__label">Rayos capturados</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-card--blue">
+        <span class="metric-card__icon" aria-hidden="true">📡</span>
+        <div class="metric-card__data">
+          <span class="metric-card__value">{{ captureRate() | number:'1.1-1' }}%</span>
+          <span class="metric-card__label">Tasa de captura</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-card--purple">
+        <span class="metric-card__icon" aria-hidden="true">⏱️</span>
+        <div class="metric-card__data">
+          <span class="metric-card__value">{{ estimatedRT60() | number:'1.1-1' }} s</span>
+          <span class="metric-card__label">RT60 estimado</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-card--pink">
+        <span class="metric-card__icon" aria-hidden="true">📶</span>
+        <div class="metric-card__data">
+          <span class="metric-card__value">{{ avgArrivalDelay() | number:'1.1-1' }} ms</span>
+          <span class="metric-card__label">Retardo de llegada promedio</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-card--blue">
+        <span class="metric-card__icon" aria-hidden="true">🔄</span>
+        <div class="metric-card__data">
+          <span class="metric-card__value">{{ maxBounces() }}</span>
+          <span class="metric-card__label">Rebotes máximos</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-card--purple">
+        <span class="metric-card__icon" aria-hidden="true">🧱</span>
+        <div class="metric-card__data">
+          <span class="metric-card__value">
+            @switch (selectedMaterial()) {
+            @case ('concrete') { Concreto }
+            @case ('wood') { Madera }
+            @case ('fabric') { Tela }
+            }
+          </span>
+          <span class="metric-card__label">Material simulado</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+  }
+
+  <section class="playback-panel" aria-labelledby="titulo-reproduccion">
+    <h2 class="playback-panel__title" id="titulo-reproduccion">
+      🎛️ Control de Reproducción
+    </h2>
+
+    <div class="playback-controls">
+
+      <button class="btn btn--primary btn--process" type="button" id="btn-procesar" (click)="startProcessing()"
+        [disabled]="!canProcess()" [attr.aria-busy]="isProcessing()"
+        [attr.aria-label]="isProcessing() ? 'Procesando…' : 'Procesar con Web Worker'">
+        <span class="btn__icon" aria-hidden="true">
+          {{ isProcessing() ? '⚙️' : '🚀' }}
+        </span>
+        <span>
+          {{ isProcessing() ? 'Procesando…' : 'Procesar con Web Worker' }}
+        </span>
+      </button>
+
+      @if (isProcessing()) {
+      <button class="btn btn--ghost" type="button" id="btn-cancelar" (click)="cancelProcessing()"
+        aria-label="Cancelar procesamiento del Web Worker">
+        <span class="btn__icon" aria-hidden="true">✖</span>
+        Cancelar
+      </button>
+      }
+
+      <button class="btn btn--secondary btn--play" type="button" id="btn-play-pause" (click)="togglePlayback()"
+        [disabled]="!isAudioReady()" [attr.aria-label]="isPlaying() ? 'Pausar audio 3D' : 'Reproducir audio 3D'"
+        [attr.aria-pressed]="isPlaying()">
+        <span class="btn__icon" aria-hidden="true">
+          {{ isPlaying() ? '⏸' : '▶️' }}
+        </span>
+        <span>{{ isPlaying() ? 'Pausar' : 'Play' }} Audio 3D</span>
+      </button>
+
+      <div class="playback-divider" role="separator" aria-hidden="true"></div>
+
+      <button class="btn btn--ghost" type="button" id="btn-descargar-audio" (click)="downloadProcessedAudio()"
+        [disabled]="!isProcessingDone()" aria-label="Descargar audio 3D procesado como WAV">
+        <span class="btn__icon" aria-hidden="true">⬇️</span>
+        Descargar Audio 3D
+      </button>
+
+      <button class="btn btn--ghost" type="button" id="btn-descargar-sim" (click)="downloadSimulation()"
+        [disabled]="!isProcessingDone()" aria-label="Descargar captura de la simulación como PNG">
+        <span class="btn__icon" aria-hidden="true">🖼️</span>
+        Exportar Simulación
+      </button>
+    </div>
+
+    @if (durationS() > 0) {
+    <div class="audio-time-bar" aria-label="Tiempo de reproducción">
+      <span class="audio-time-bar__current">{{ currentTimeS() | number:'1.0-0' }}s</span>
+      <div class="progress-bar" role="progressbar" [attr.aria-valuenow]="currentTimeS()" aria-valuemin="0"
+        [attr.aria-valuemax]="durationS()">
+        <div class="progress-bar__fill progress-bar__fill--audio"
+          [style.width.%]="(currentTimeS() / durationS()) * 100">
+        </div>
+      </div>
+      <span class="audio-time-bar__total">{{ durationS() | number:'1.0-0' }}s</span>
+    </div>
+    }
+
+    @if (engineError()) {
+    <p class="engine-error" role="alert" aria-live="assertive">
+      ⚠️ {{ engineError() }}
+    </p>
+    }
+
+    <p class="playback-info" aria-live="polite">
+      @if (audioEngine.engineState() === 'loading') {
+      ⏳ Decodificando audio…
+      } @else if (!canProcess() && !isProcessing()) {
+      💡 Carga un archivo de audio para habilitar el procesamiento.
+      } @else if (isProcessing()) {
+      🧮 El Web Worker está ejecutando el algoritmo de ray-tracing acústico…
+      } @else if (isPlaying()) {
+      🔊 Reproduciendo audio 3D con HRTF — mueve el parlante en tiempo real.
+      } @else if (isProcessingDone() && isAudioReady()) {
+      ✅ Simulación y audio listos. Usa Play para escuchar el efecto espacial 3D.
+      } @else if (isProcessingDone()) {
+      ✅ Simulación completada. Carga un audio para reproducir el efecto 3D.
+      } @else {
+      ⏳ Posiciona el parlante y el oyente en el canvas, luego procesa.
+      }
+    </p>
+  </section>
+
+</main>
+
+<router-outlet />
